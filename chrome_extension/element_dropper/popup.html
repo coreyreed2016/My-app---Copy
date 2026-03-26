@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Element Dropper</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Element Dropper</h1>
+
+      <label class="field-label" for="endpoint">App Endpoint</label>
+      <div class="row">
+        <input id="endpoint" type="text" />
+        <button id="save-endpoint">Save</button>
+      </div>
+      <div class="row actions">
+        <button id="refresh-now">Refresh</button>
+        <button id="test-endpoint">Test App</button>
+        <button id="clear-all">Clear All</button>
+      </div>
+      <p id="connection">App: unknown</p>
+      
+      <div class="row actions">
+        <button id="toggle-live-trades">Toggle Live Trades</button>
+      </div>
+      <p id="live-trades-status">Live Trades: unknown</p>
+
+      <section class="slot" data-slot="topstep">
+        <h2>Topstep</h2>
+        <div class="row">
+          <button class="pick-btn" data-slot="topstep">Pick</button>
+          <button class="repick-btn" data-slot="topstep">Repick</button>
+          <button class="test-btn" data-slot="topstep">Test</button>
+          <button class="clear-btn" data-slot="topstep">Clear</button>
+        </div>
+        <p class="meta selector" id="topstep-selector">Selector: -</p>
+        <p class="meta preview" id="topstep-preview">Preview: -</p>
+        <p class="meta value" id="topstep-value">Value: -</p>
+        <p class="meta updated" id="topstep-updated">Updated: -</p>
+        <p class="meta page" id="topstep-page">Page: -</p>
+      </section>
+
+      <section class="slot" data-slot="tradovate">
+        <h2>Tradovate</h2>
+        <div class="row">
+          <button class="pick-btn" data-slot="tradovate">Pick</button>
+          <button class="repick-btn" data-slot="tradovate">Repick</button>
+          <button class="test-btn" data-slot="tradovate">Test</button>
+          <button class="clear-btn" data-slot="tradovate">Clear</button>
+        </div>
+        <p class="meta selector" id="tradovate-selector">Selector: -</p>
+        <p class="meta preview" id="tradovate-preview">Preview: -</p>
+        <p class="meta value" id="tradovate-value">Value: -</p>
+        <p class="meta updated" id="tradovate-updated">Updated: -</p>
+        <p class="meta page" id="tradovate-page">Page: -</p>
+      </section>
+
+      <p id="status">Ready.</p>
+    </main>
+    
+    <footer id="live-trading-hub">
+      <div class="hub-indicator" id="hub-indicator"></div>
+      <div class="hub-label" id="hub-label">Live Trading: OFF</div>
+    </footer>
+    
+    <script src="popup.js"></script>
+  </body>
+</html>

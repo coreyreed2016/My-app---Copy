@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Element Dropper Feed",
+  "version": "1.0.0",
+  "description": "Pick Topstep/Tradovate elements and stream values to the desktop app.",
+  "permissions": ["storage", "scripting", "activeTab", "tabs", "alarms"],
+  "host_permissions": ["<all_urls>", "http://127.0.0.1/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Element Dropper",
+    "default_popup": "popup.html"
+  }
+}
