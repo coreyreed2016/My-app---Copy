@@ -20,12 +20,17 @@ const DEFAULT_STATE = {
     lastError: ""
   },
   liveTrades: false,
-  actionButtonsActive: false
+  actionButtonsActive: false,
+  monitoring: false,
+  armed: false,
+  inPosition: false
 };
 
 const ACTION_SLOTS = ["buy-button", "sell-button", "close-button"];
-const FAST_POLL_MS = 250;
-const IDLE_POLL_MS = 800;
+const ACTIVE_POLL_MS = 180;
+const READY_POLL_MS = 220;
+const CONFIGURED_IDLE_POLL_MS = 350;
+const IDLE_POLL_MS = 900;
 
 let pollLoopTimer = null;
 let pollLoopInFlight = false;
@@ -50,7 +55,10 @@ async function getState() {
     liveTrades: (stored.state || {}).liveTrades !== undefined ? (stored.state || {}).liveTrades : DEFAULT_STATE.liveTrades,
     actionButtonsActive: (stored.state || {}).actionButtonsActive !== undefined
       ? (stored.state || {}).actionButtonsActive
-      : DEFAULT_STATE.actionButtonsActive
+      : DEFAULT_STATE.actionButtonsActive,
+    monitoring: (stored.state || {}).monitoring !== undefined ? (stored.state || {}).monitoring : DEFAULT_STATE.monitoring,
+    armed: (stored.state || {}).armed !== undefined ? (stored.state || {}).armed : DEFAULT_STATE.armed,
+    inPosition: (stored.state || {}).inPosition !== undefined ? (stored.state || {}).inPosition : DEFAULT_STATE.inPosition
   };
 }
 
@@ -82,7 +90,16 @@ function hasConfiguredFeedTargets(state) {
 }
 
 function getPollDelayMs(state) {
-  return hasConfiguredFeedTargets(state) ? FAST_POLL_MS : IDLE_POLL_MS;
+  if (!hasConfiguredFeedTargets(state)) {
+    return IDLE_POLL_MS;
+  }
+  if (state && state.inPosition) {
+    return ACTIVE_POLL_MS;
+  }
+  if (state && (state.armed || state.actionButtonsActive || state.monitoring)) {
+    return READY_POLL_MS;
+  }
+  return CONFIGURED_IDLE_POLL_MS;
 }
 
 function scheduleNextPoll(delayMs) {
@@ -98,7 +115,7 @@ function scheduleNextPoll(delayMs) {
 
 async function runPollingLoopTick() {
   if (pollLoopInFlight) {
-    scheduleNextPoll(FAST_POLL_MS);
+    scheduleNextPoll(READY_POLL_MS);
     return;
   }
   pollLoopInFlight = true;
@@ -107,7 +124,7 @@ async function runPollingLoopTick() {
     const state = await pollAll();
     nextDelay = getPollDelayMs(state);
   } catch (_err) {
-    nextDelay = FAST_POLL_MS;
+    nextDelay = READY_POLL_MS;
   } finally {
     pollLoopInFlight = false;
   }
@@ -428,6 +445,9 @@ async function fetchLiveTradesStatus(state) {
       const data = await response.json();
       return {
         enabled: !!data.enabled,
+        monitoring: !!data.monitoring,
+        armed: !!data.armed,
+        inPosition: !!data.inPosition,
         actionButtonsActive: !!data.actionButtonsActive,
         command: data.command || null
       };
@@ -437,6 +457,9 @@ async function fetchLiveTradesStatus(state) {
   }
   return {
     enabled: false,
+    monitoring: false,
+    armed: false,
+    inPosition: false,
     actionButtonsActive: false,
     command: null
   };
@@ -448,6 +471,9 @@ async function pollAll() {
   state = await pollSlot("tradovate", state);
   const liveState = await fetchLiveTradesStatus(state);
   state.liveTrades = liveState.enabled;
+  state.monitoring = liveState.monitoring;
+  state.armed = liveState.armed;
+  state.inPosition = liveState.inPosition;
   state.actionButtonsActive = liveState.actionButtonsActive;
   state = await processLiveTradeCommand(state, liveState.command);
   await setState(state);
@@ -459,6 +485,9 @@ async function pollOne(slot) {
   state = await pollSlot(slot, state);
   const liveState = await fetchLiveTradesStatus(state);
   state.liveTrades = liveState.enabled;
+  state.monitoring = liveState.monitoring;
+  state.armed = liveState.armed;
+  state.inPosition = liveState.inPosition;
   state.actionButtonsActive = liveState.actionButtonsActive;
   state = await processLiveTradeCommand(state, liveState.command);
   await setState(state);

@@ -111,6 +111,7 @@ class NumberDiffApp(tk.Tk):
         self.analytics_realized_pnl_value = tk.StringVar(value="$0.00")
         self.analytics_avg_win_value = tk.StringVar(value="-")
         self.analytics_avg_loss_value = tk.StringVar(value="-")
+        self.analytics_timeframe_value = tk.StringVar(value="All")
         self.history_filter_value = tk.StringVar(value="All")
         self.history_limit_value = tk.StringVar(value="250")
         self.auto_sim_threshold_value = tk.StringVar(value="1")
@@ -507,6 +508,15 @@ class NumberDiffApp(tk.Tk):
         toolbar = ttk.Frame(history_frame)
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 5))
         ttk.Button(toolbar, text="Clear History", command=self.clear_difference_history).pack(side="left")
+        ttk.Label(toolbar, text="Period:").pack(side="left", padx=(12, 4))
+        period_filter = ttk.Combobox(
+            toolbar,
+            textvariable=self.analytics_timeframe_value,
+            values=("All", "Today", "Yesterday", "This Week", "Last 7 Days", "This Month", "Last 30 Days"),
+            state="readonly",
+            width=12,
+        )
+        period_filter.pack(side="left")
         ttk.Label(toolbar, text="Result:").pack(side="left", padx=(12, 4))
         result_filter = ttk.Combobox(toolbar, textvariable=self.history_filter_value, values=("All", "Closed", "Wins", "Losses", "Entries", "Unlabeled"), state="readonly", width=10)
         result_filter.pack(side="left")
@@ -539,6 +549,7 @@ class NumberDiffApp(tk.Tk):
         scrollbar.grid(row=2, column=1, sticky="ns")
         self.history_tree.configure(yscrollcommand=scrollbar.set)
 
+        self.analytics_timeframe_value.trace_add("write", self.on_history_filter_changed)
         self.history_filter_value.trace_add("write", self.on_history_filter_changed)
         self.history_limit_value.trace_add("write", self.on_history_filter_changed)
         
@@ -861,6 +872,57 @@ class NumberDiffApp(tk.Tk):
             filtered = filtered[-limit:]
         return filtered
 
+    def parse_row_timestamp(self, timestamp_text: str):
+        text = str(timestamp_text or "").strip()
+        if not text:
+            return None
+        try:
+            parsed = datetime.strptime(text, "%Y-%m-%d %H:%M:%S")
+            return parsed.replace(tzinfo=UTC_MINUS_5)
+        except ValueError:
+            return None
+
+    def filter_rows_by_timeframe(self, rows):
+        period = self.analytics_timeframe_value.get().strip().lower()
+        if period == "all":
+            return rows
+
+        now_dt = self.get_utc_minus5_now()
+        today_date = now_dt.date()
+        start_dt = None
+        end_dt = now_dt
+
+        if period == "today":
+            start_dt = datetime.combine(today_date, dt_time.min, tzinfo=UTC_MINUS_5)
+        elif period == "yesterday":
+            start_day = today_date - timedelta(days=1)
+            start_dt = datetime.combine(start_day, dt_time.min, tzinfo=UTC_MINUS_5)
+            end_dt = datetime.combine(start_day, dt_time.max, tzinfo=UTC_MINUS_5)
+        elif period == "this week":
+            start_day = today_date - timedelta(days=today_date.weekday())
+            start_dt = datetime.combine(start_day, dt_time.min, tzinfo=UTC_MINUS_5)
+        elif period == "last 7 days":
+            start_dt = now_dt - timedelta(days=7)
+        elif period == "this month":
+            start_day = today_date.replace(day=1)
+            start_dt = datetime.combine(start_day, dt_time.min, tzinfo=UTC_MINUS_5)
+        elif period == "last 30 days":
+            start_dt = now_dt - timedelta(days=30)
+        else:
+            return rows
+
+        filtered = []
+        for row in rows:
+            ts = self.parse_row_timestamp(row.get("timestamp", ""))
+            if ts is None:
+                continue
+            if start_dt is not None and ts < start_dt:
+                continue
+            if end_dt is not None and ts > end_dt:
+                continue
+            filtered.append(row)
+        return filtered
+
     def refresh_analytics_summary(self, rows):
         self.analytics_total_events_value.set(str(len(rows)))
         closed_rows = [row for row in rows if row["result"] in ("WIN", "LOSS") and isinstance(row["p_l_num"], (int, float))]
@@ -894,9 +956,10 @@ class NumberDiffApp(tk.Tk):
 
     def load_difference_history(self):
         rows = self.read_difference_history_rows()
-        self.refresh_analytics_summary(rows)
+        timeframe_rows = self.filter_rows_by_timeframe(rows)
+        self.refresh_analytics_summary(timeframe_rows)
         self.history_tree.delete(*self.history_tree.get_children())
-        filtered_rows = self.filter_history_rows(rows)
+        filtered_rows = self.filter_history_rows(timeframe_rows)
         self.difference_count = len(rows)
         for row in filtered_rows:
             values = (
@@ -1601,12 +1664,16 @@ class NumberDiffApp(tk.Tk):
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     live_enabled = bool(app.live_trades_enabled_value.get())
+                    in_position = bool(app.auto_position_side != 0)
+                    armed = bool(app.running and not in_position)
                     action_buttons_active = bool(app.running and live_enabled)
                     command = app.pop_live_trade_command() if action_buttons_active else None
                     response = json.dumps(
                         {
                             "enabled": live_enabled,
                             "monitoring": bool(app.running),
+                            "armed": armed,
+                            "inPosition": in_position,
                             "actionButtonsActive": action_buttons_active,
                             "command": command,
                         }

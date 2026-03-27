@@ -1946,3 +1946,7 @@ timestamp,action,hotkey,sent_keys
 2026-03-26 21:23:41,SELL,AUTO_SL,diff=0.000000 | topstep_move=-4.50 | fill_points=-4.50,IN_APP_SIM
 2026-03-26 21:34:52,BUY,AUTO_ENTRY,diff=-2.500000,IN_APP_SIM
 2026-03-26 21:36:04,SELL,AUTO_SL,diff=-1.250000 | topstep_move=-5.25 | fill_points=-4.45,IN_APP_SIM
+2026-03-26 22:06:48,SELL,AUTO_ENTRY,diff=2.500000,IN_APP_SIM
+2026-03-26 22:08:27,BUY,AUTO_SL,diff=0.000000 | topstep_move=-4.75 | fill_points=-4.46,IN_APP_SIM
+2026-03-26 22:12:35,BUY,AUTO_ENTRY,diff=-2.250000,IN_APP_SIM
+2026-03-26 22:14:19,SELL,AUTO_SL,diff=0.000000 | topstep_move=-4.50 | fill_points=-4.47,IN_APP_SIM

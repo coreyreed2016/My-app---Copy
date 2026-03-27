@@ -10,5 +10,5 @@
   "trade_window_enabled": false,
   "trade_window_start": "08:30",
   "trade_window_end": "15:00",
-  "live_trades_enabled": true
+  "live_trades_enabled": false
 }
