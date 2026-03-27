@@ -442,14 +442,17 @@ class TradingMixin:
         now = time.time()
         if self.auto_position_side != 0 and self.auto_entry_diff is not None:
             points_move = self.get_open_position_points_move(topstep_num)
-            if take_profit_points > 0 and points_move >= take_profit_points:
+            # Convert raw topstep move into direction-aware move so BUY/SELL exits are symmetric.
+            directional_move = points_move * float(self.auto_position_side)
+
+            if take_profit_points > 0 and directional_move >= take_profit_points:
                 close_action = "SELL" if self.auto_position_side > 0 else "BUY"
                 realized_points = take_profit_points
                 executed = self.execute_paper_trade(
                     close_action,
                     trigger_source="AUTO_TP",
                     diff=diff,
-                    note=f"topstep_move={points_move:.2f} | fill_points={realized_points:.2f}",
+                    note=f"topstep_move={points_move:.2f} | dir_move={directional_move:.2f} | fill_points={realized_points:.2f}",
                     set_main_status=False,
                 )
                 if executed:
@@ -474,14 +477,14 @@ class TradingMixin:
                     self.refresh_trade_timing_display(now)
                     self.last_auto_signal = 0
                 return
-            if stop_loss_points > 0 and points_move <= -(stop_loss_points - 1e-9):
+            if stop_loss_points > 0 and directional_move <= -(stop_loss_points - 1e-9):
                 close_action = "SELL" if self.auto_position_side > 0 else "BUY"
                 realized_points = -stop_loss_points
                 executed = self.execute_paper_trade(
                     close_action,
                     trigger_source="AUTO_SL",
                     diff=diff,
-                    note=f"topstep_move={points_move:.2f} | fill_points={realized_points:.2f}",
+                    note=f"topstep_move={points_move:.2f} | dir_move={directional_move:.2f} | fill_points={realized_points:.2f}",
                     set_main_status=False,
                 )
                 if executed:
@@ -507,7 +510,7 @@ class TradingMixin:
                     self.last_auto_signal = 0
                 return
             side_text = "BUY" if self.auto_position_side > 0 else "SELL"
-            self.auto_sim_status_value.set(f"In {side_text} | topstep move {points_move:.2f} pts")
+            self.auto_sim_status_value.set(f"In {side_text} | directional move {directional_move:.2f} pts")
             self.refresh_trade_timing_display(now)
             return
 
