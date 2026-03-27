@@ -3,90 +3,10 @@
   "session_profiles": {
     "New York": {
       "threshold_offset": 3.0,
-      "cooldown_mult": 2.707935101768146,
-      "tp_offset": -0.2320818762018575,
-      "sl_offset": -0.29641104732309537,
+      "cooldown_mult": 2.8036436013105295,
+      "tp_offset": -0.19744667848394407,
+      "sl_offset": -0.2521755585472293,
       "trades": [
-        {
-          "ts": "2026-03-25 13:56:08",
-          "entry_hour_utc5": 13,
-          "entry_diff": 0.75,
-          "entry_side": "SELL",
-          "points_move": 2.25,
-          "pnl": 45.0,
-          "is_win": true,
-          "exit_reason": "TP"
-        },
-        {
-          "ts": "2026-03-25 13:58:18",
-          "entry_hour_utc5": 13,
-          "entry_diff": -0.5,
-          "entry_side": "BUY",
-          "points_move": 2.0,
-          "pnl": 40.0,
-          "is_win": true,
-          "exit_reason": "TP"
-        },
-        {
-          "ts": "2026-03-25 13:58:53",
-          "entry_hour_utc5": 13,
-          "entry_diff": -0.5,
-          "entry_side": "BUY",
-          "points_move": 3.0,
-          "pnl": 60.0,
-          "is_win": true,
-          "exit_reason": "TP"
-        },
-        {
-          "ts": "2026-03-25 13:58:57",
-          "entry_hour_utc5": 13,
-          "entry_diff": 1.0,
-          "entry_side": "SELL",
-          "points_move": 2.0,
-          "pnl": 40.0,
-          "is_win": true,
-          "exit_reason": "TP"
-        },
-        {
-          "ts": "2026-03-25 14:00:44",
-          "entry_hour_utc5": 13,
-          "entry_diff": 0.5,
-          "entry_side": "SELL",
-          "points_move": 4.75,
-          "pnl": 95.0,
-          "is_win": true,
-          "exit_reason": "TP"
-        },
-        {
-          "ts": "2026-03-25 14:01:51",
-          "entry_hour_utc5": 14,
-          "entry_diff": 0.5,
-          "entry_side": "SELL",
-          "points_move": -5.75,
-          "pnl": -115.0,
-          "is_win": false,
-          "exit_reason": "SL"
-        },
-        {
-          "ts": "2026-03-25 14:01:58",
-          "entry_hour_utc5": 14,
-          "entry_diff": -1.25,
-          "entry_side": "BUY",
-          "points_move": 2.25,
-          "pnl": 45.0,
-          "is_win": true,
-          "exit_reason": "TP"
-        },
-        {
-          "ts": "2026-03-25 14:02:02",
-          "entry_hour_utc5": 14,
-          "entry_diff": 1.75,
-          "entry_side": "SELL",
-          "points_move": 2.25,
-          "pnl": 45.0,
-          "is_win": true,
-          "exit_reason": "TP"
-        },
         {
           "ts": "2026-03-25 14:03:23",
           "entry_hour_utc5": 14,
@@ -3276,6 +3196,94 @@
           "entry_session": "New York",
           "points_move": -5.0,
           "pnl": -100.0,
+          "is_win": false,
+          "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-27 12:06:56",
+          "entry_hour_utc5": 12,
+          "entry_diff": -4.25,
+          "entry_side": "BUY",
+          "entry_session": "New York",
+          "points_move": 4.767918123798142,
+          "pnl": 95.35836247596285,
+          "is_win": true,
+          "exit_reason": "TP"
+        },
+        {
+          "ts": "2026-03-27 12:06:59",
+          "entry_hour_utc5": 12,
+          "entry_diff": -10.5,
+          "entry_side": "BUY",
+          "entry_session": "New York",
+          "points_move": 4.77255976132218,
+          "pnl": 95.45119522644359,
+          "is_win": true,
+          "exit_reason": "TP"
+        },
+        {
+          "ts": "2026-03-27 12:07:03",
+          "entry_hour_utc5": 12,
+          "entry_diff": 6.0,
+          "entry_side": "SELL",
+          "entry_session": "New York",
+          "points_move": -4.715326830150899,
+          "pnl": -94.30653660301799,
+          "is_win": false,
+          "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-27 12:07:07",
+          "entry_hour_utc5": 12,
+          "entry_diff": -7.5,
+          "entry_side": "BUY",
+          "entry_session": "New York",
+          "points_move": 4.781566394773821,
+          "pnl": 95.63132789547643,
+          "is_win": true,
+          "exit_reason": "TP"
+        },
+        {
+          "ts": "2026-03-27 12:07:13",
+          "entry_hour_utc5": 12,
+          "entry_diff": -7.75,
+          "entry_side": "BUY",
+          "entry_session": "New York",
+          "points_move": 4.785935066878345,
+          "pnl": 95.7187013375669,
+          "is_win": true,
+          "exit_reason": "TP"
+        },
+        {
+          "ts": "2026-03-27 12:07:17",
+          "entry_hour_utc5": 12,
+          "entry_diff": 12.75,
+          "entry_side": "SELL",
+          "entry_session": "New York",
+          "points_move": -4.7320678899233855,
+          "pnl": -94.64135779846771,
+          "is_win": false,
+          "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-27 12:08:10",
+          "entry_hour_utc5": 12,
+          "entry_diff": -5.0,
+          "entry_side": "BUY",
+          "entry_session": "New York",
+          "points_move": -4.737426532124918,
+          "pnl": -94.74853064249835,
+          "is_win": false,
+          "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-27 12:37:08",
+          "entry_hour_utc5": 12,
+          "entry_diff": 5.0,
+          "entry_side": "SELL",
+          "entry_session": "New York",
+          "points_move": -10.0,
+          "pnl": -200.0,
           "is_win": false,
           "exit_reason": "SL"
         }
@@ -6566,94 +6574,6 @@
     }
   },
   "samples": [
-    {
-      "ts": "2026-03-26 06:34:14",
-      "entry_hour_utc5": 6,
-      "entry_diff": 1.0,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
-    {
-      "ts": "2026-03-26 06:35:58",
-      "entry_hour_utc5": 6,
-      "entry_diff": 2.25,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": -5.0,
-      "pnl": -100.0,
-      "is_win": false,
-      "exit_reason": "SL"
-    },
-    {
-      "ts": "2026-03-26 06:36:52",
-      "entry_hour_utc5": 6,
-      "entry_diff": 1.0,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": -5.0,
-      "pnl": -100.0,
-      "is_win": false,
-      "exit_reason": "SL"
-    },
-    {
-      "ts": "2026-03-26 06:37:02",
-      "entry_hour_utc5": 6,
-      "entry_diff": 1.75,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
-    {
-      "ts": "2026-03-26 06:37:51",
-      "entry_hour_utc5": 6,
-      "entry_diff": 1.0,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": -5.0,
-      "pnl": -100.0,
-      "is_win": false,
-      "exit_reason": "SL"
-    },
-    {
-      "ts": "2026-03-26 06:38:58",
-      "entry_hour_utc5": 6,
-      "entry_diff": 1.25,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": -5.0,
-      "pnl": -100.0,
-      "is_win": false,
-      "exit_reason": "SL"
-    },
-    {
-      "ts": "2026-03-26 06:39:15",
-      "entry_hour_utc5": 6,
-      "entry_diff": 2.0,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
-    {
-      "ts": "2026-03-26 06:41:04",
-      "entry_hour_utc5": 6,
-      "entry_diff": 1.25,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
     {
       "ts": "2026-03-26 06:43:43",
       "entry_hour_utc5": 6,
@@ -12063,6 +11983,94 @@
       "entry_session": "Asia",
       "points_move": -4.461,
       "pnl": -89.22,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-27 12:06:56",
+      "entry_hour_utc5": 12,
+      "entry_diff": -4.25,
+      "entry_side": "BUY",
+      "entry_session": "New York",
+      "points_move": 4.767918123798142,
+      "pnl": 95.35836247596285,
+      "is_win": true,
+      "exit_reason": "TP"
+    },
+    {
+      "ts": "2026-03-27 12:06:59",
+      "entry_hour_utc5": 12,
+      "entry_diff": -10.5,
+      "entry_side": "BUY",
+      "entry_session": "New York",
+      "points_move": 4.77255976132218,
+      "pnl": 95.45119522644359,
+      "is_win": true,
+      "exit_reason": "TP"
+    },
+    {
+      "ts": "2026-03-27 12:07:03",
+      "entry_hour_utc5": 12,
+      "entry_diff": 6.0,
+      "entry_side": "SELL",
+      "entry_session": "New York",
+      "points_move": -4.715326830150899,
+      "pnl": -94.30653660301799,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-27 12:07:07",
+      "entry_hour_utc5": 12,
+      "entry_diff": -7.5,
+      "entry_side": "BUY",
+      "entry_session": "New York",
+      "points_move": 4.781566394773821,
+      "pnl": 95.63132789547643,
+      "is_win": true,
+      "exit_reason": "TP"
+    },
+    {
+      "ts": "2026-03-27 12:07:13",
+      "entry_hour_utc5": 12,
+      "entry_diff": -7.75,
+      "entry_side": "BUY",
+      "entry_session": "New York",
+      "points_move": 4.785935066878345,
+      "pnl": 95.7187013375669,
+      "is_win": true,
+      "exit_reason": "TP"
+    },
+    {
+      "ts": "2026-03-27 12:07:17",
+      "entry_hour_utc5": 12,
+      "entry_diff": 12.75,
+      "entry_side": "SELL",
+      "entry_session": "New York",
+      "points_move": -4.7320678899233855,
+      "pnl": -94.64135779846771,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-27 12:08:10",
+      "entry_hour_utc5": 12,
+      "entry_diff": -5.0,
+      "entry_side": "BUY",
+      "entry_session": "New York",
+      "points_move": -4.737426532124918,
+      "pnl": -94.74853064249835,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-27 12:37:08",
+      "entry_hour_utc5": 12,
+      "entry_diff": 5.0,
+      "entry_side": "SELL",
+      "entry_session": "New York",
+      "points_move": -10.0,
+      "pnl": -200.0,
       "is_win": false,
       "exit_reason": "SL"
     }

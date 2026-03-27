@@ -1,5 +1,5 @@
 {
-  "interval": "0.2",
+  "interval": "0.3",
   "contracts": "1",
   "dollars_per_point": "20",
   "extension_port": "8765",
