@@ -95,7 +95,7 @@ class NumberDiffApp(tk.Tk):
         self.profit_loss_value = tk.StringVar(value="-")
         self.total_profit_loss_value = tk.StringVar(value="$0.00")
         self.status_value = tk.StringVar(value="Idle")
-        self.interval_value = tk.StringVar(value="0.8")
+        self.interval_value = tk.StringVar(value="0.3")
         self.contract_size_value = tk.StringVar(value="1")
         self.point_value_value = tk.StringVar(value="20")
         self.difference_count_value = tk.StringVar(value="0")
@@ -121,9 +121,11 @@ class NumberDiffApp(tk.Tk):
         self.trade_window_start_value = tk.StringVar(value="08:30")
         self.trade_window_end_value = tk.StringVar(value="15:00")
         self.utc_minus5_time_value = tk.StringVar(value="-")
+        self.current_session_value = tk.StringVar(value="-")
         self.data_tab_button_text = tk.StringVar(value="Open Data Tab")
         self.entry_time_value = tk.StringVar(value="-")
         self.entry_number_value = tk.StringVar(value="-")
+        self.entry_side_value = tk.StringVar(value="-")
         self.time_in_trade_value = tk.StringVar(value="-")
         self.learning_enabled_value = tk.BooleanVar(value=True)
         self.learning_status_value = tk.StringVar(value="On | waiting for trades")
@@ -153,6 +155,8 @@ class NumberDiffApp(tk.Tk):
         self.extension_values = {"topstep": None, "tradovate": None}
         self.extension_texts = {"topstep": "", "tradovate": ""}
         self.extension_last_received_epoch = {"topstep": None, "tradovate": None}
+        self.live_trade_commands = deque()
+        self.live_trade_command_seq = 0
         self.last_auto_signal = 0
         self.last_auto_trade_at = 0.0
         self.auto_position_side = 0
@@ -197,6 +201,10 @@ class NumberDiffApp(tk.Tk):
         style.configure("TEntry", fieldbackground="#0f3460", foreground=text_light, borderwidth=1)
         style.configure("TButton", background=accent_teal, foreground=text_light, padding=6, borderwidth=0)
         style.map("TButton", background=[("active", accent_green)])
+        style.configure("LiveOn.TButton", background=accent_green, foreground="#0b1f1a", padding=6, borderwidth=0)
+        style.map("LiveOn.TButton", background=[("active", "#34e6b8")])
+        style.configure("LiveOff.TButton", background=accent_red, foreground=text_light, padding=6, borderwidth=0)
+        style.map("LiveOff.TButton", background=[("active", "#ff6b81")])
         style.configure("Treeview", background="#0f3460", foreground=text_light, fieldbackground="#0f3460", borderwidth=0)
         style.configure("Treeview.Heading", background="#16213e", foreground=accent_green, font=("Segoe UI", 9, "bold"))
         style.configure("Title.TLabel", font=("Segoe UI", 18, "bold"), foreground=accent_green, background=bg_dark)
@@ -275,130 +283,140 @@ class NumberDiffApp(tk.Tk):
             self.settings_view.grid(row=0, column=0, sticky="nsew")
     
     def build_monitor_view(self):
-        """Build the monitoring dashboard view."""
+        """Build the monitoring dashboard view - compact 2-column layout without scrolling."""
         view = ttk.Frame(self.views_container)
         view.columnconfigure(0, weight=1)
         view.rowconfigure(1, weight=1)
         
         # Header
         header = ttk.Frame(view)
-        header.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
+        header.grid(row=0, column=0, sticky="ew", padx=15, pady=(15, 10))
         header.columnconfigure(1, weight=1)
         ttk.Label(header, text="🚀 Trading Monitor", style="Title.TLabel").grid(row=0, column=0, sticky="w")
         
         # Control buttons
         btn_frame = ttk.Frame(header)
         btn_frame.grid(row=0, column=2, sticky="e")
-        ttk.Button(btn_frame, text="▶ Start", command=self.start_monitoring).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="⏹ Stop", command=self.stop_monitoring).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="▶ Start", command=self.start_monitoring).pack(side="left", padx=3)
+        ttk.Button(btn_frame, text="⏹ Stop", command=self.stop_monitoring).pack(side="left", padx=3)
+        live_toggle_btn = ttk.Button(btn_frame, command=self.toggle_live_trades)
+        live_toggle_btn.pack(side="left", padx=3)
+
+        def update_live_toggle_btn(*_args):
+            is_live = self.live_trades_enabled_value.get()
+            text = "🟢 Live ON" if is_live else "🔴 Live OFF"
+            style_name = "LiveOn.TButton" if is_live else "LiveOff.TButton"
+            live_toggle_btn.configure(text=text, style=style_name)
+
+        self.live_trades_enabled_value.trace_add("write", update_live_toggle_btn)
+        update_live_toggle_btn()
         
-        # Main content scroll
-        scroll_frame = ttk.Frame(view)
-        scroll_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
-        scroll_frame.columnconfigure(0, weight=1)
-        scroll_frame.rowconfigure(0, weight=1)
+        # Main content frame with 2 columns (no scrolling)
+        content = ttk.Frame(view)
+        content.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+        content.columnconfigure(0, weight=1)
+        content.columnconfigure(1, weight=1)
         
-        canvas = tk.Canvas(scroll_frame, bg="#1a1a2e", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
-        scrollable = ttk.Frame(canvas, class_="Scrollable")
+        # LEFT COLUMN
+        left = ttk.Frame(content)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        left.columnconfigure(0, weight=1)
         
-        scrollable.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        self.bind_mousewheel_scroll(canvas, scrollable)
-        
-        # Extension status card
-        ext_card = self.create_card(scrollable, "📡 Extension Feed")
+        # Extension Feed (compact)
+        ext_card = self.create_card(left, "📡 Extension Feed")
         ext_card.columnconfigure(1, weight=1)
         ext_card.columnconfigure(3, weight=1)
         
-        ttk.Label(ext_card, text="Port:").grid(row=0, column=0, sticky="w", padx=15, pady=8)
-        ttk.Entry(ext_card, textvariable=self.extension_port_value, width=10).grid(row=0, column=1, sticky="w", padx=10)
-        ttk.Label(ext_card, text="Test:").grid(row=0, column=2, sticky="w", padx=15)
-        ttk.Button(ext_card, text="📍 Test Connection", command=self.test_extension_connection).grid(row=0, column=3, sticky="w", padx=10)
+        ttk.Label(ext_card, text="Port:", style="Card.TLabel").grid(row=0, column=0, sticky="w", padx=10, pady=4)
+        ttk.Entry(ext_card, textvariable=self.extension_port_value, width=8).grid(row=0, column=1, sticky="w", padx=8)
+        ttk.Button(ext_card, text="Test", command=self.test_extension_connection).grid(row=0, column=2, columnspan=2, sticky="w", padx=8, pady=2)
         
-        ttk.Label(ext_card, text="Server:", style="Card.TLabel").grid(row=1, column=0, sticky="w", padx=15, pady=8)
-        ttk.Label(ext_card, textvariable=self.extension_status_value, foreground="#00d9a3").grid(row=1, column=1, columnspan=3, sticky="w", padx=10)
+        ttk.Label(ext_card, text="Server:", style="Card.TLabel").grid(row=1, column=0, sticky="w", padx=10, pady=4)
+        ttk.Label(ext_card, textvariable=self.extension_status_value, foreground="#00d9a3").grid(row=1, column=1, columnspan=3, sticky="w", padx=8)
 
-        ttk.Label(ext_card, text="Topstep Feed:", style="Card.TLabel").grid(row=2, column=0, sticky="w", padx=15, pady=8)
-        ttk.Label(ext_card, textvariable=self.topstep_feed_status_value, foreground="#00d9ff").grid(row=2, column=1, sticky="w", padx=10)
-        ttk.Label(ext_card, text="Updated:", style="Card.TLabel").grid(row=2, column=2, sticky="w", padx=15)
-        ttk.Label(ext_card, textvariable=self.topstep_updated_value, foreground="#e0e0e0").grid(row=2, column=3, sticky="w", padx=10)
+        ttk.Label(ext_card, text="Topstep:", style="Card.TLabel").grid(row=2, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(ext_card, textvariable=self.topstep_feed_status_value, foreground="#00d9ff").grid(row=2, column=1, sticky="w", padx=8)
+        ttk.Label(ext_card, text="Updated:", style="Card.TLabel").grid(row=2, column=2, sticky="w", padx=10)
+        ttk.Label(ext_card, textvariable=self.topstep_updated_value, foreground="#e0e0e0").grid(row=2, column=3, sticky="w", padx=8)
 
-        ttk.Label(ext_card, text="Tradovate Feed:", style="Card.TLabel").grid(row=3, column=0, sticky="w", padx=15, pady=8)
-        ttk.Label(ext_card, textvariable=self.tradovate_feed_status_value, foreground="#00d9ff").grid(row=3, column=1, sticky="w", padx=10)
-        ttk.Label(ext_card, text="Updated:", style="Card.TLabel").grid(row=3, column=2, sticky="w", padx=15)
-        ttk.Label(ext_card, textvariable=self.tradovate_updated_value, foreground="#e0e0e0").grid(row=3, column=3, sticky="w", padx=10)
+        ttk.Label(ext_card, text="Tradovate:", style="Card.TLabel").grid(row=3, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(ext_card, textvariable=self.tradovate_feed_status_value, foreground="#00d9ff").grid(row=3, column=1, sticky="w", padx=8)
+        ttk.Label(ext_card, text="Updated:", style="Card.TLabel").grid(row=3, column=2, sticky="w", padx=10)
+        ttk.Label(ext_card, textvariable=self.tradovate_updated_value, foreground="#e0e0e0").grid(row=3, column=3, sticky="w", padx=8)
         
-        # Live metrics card
-        metrics_card = self.create_card(scrollable, "📊 Live Metrics")
-        metrics_card.columnconfigure(1, weight=1)
-        metrics_card.columnconfigure(3, weight=1)
-        
-        ttk.Label(metrics_card, text="Topstep:", style="Card.TLabel").grid(row=0, column=0, sticky="w", padx=15, pady=10)
-        ttk.Label(metrics_card, textvariable=self.left_value, style="Value.TLabel").grid(row=0, column=1, sticky="w", padx=10)
-        ttk.Label(metrics_card, text="Tradovate:", style="Card.TLabel").grid(row=0, column=2, sticky="w", padx=15)
-        ttk.Label(metrics_card, textvariable=self.right_value, style="Value.TLabel").grid(row=0, column=3, sticky="w", padx=10)
-        
-        ttk.Label(metrics_card, text="Difference:", style="Card.TLabel").grid(row=1, column=0, sticky="w", padx=15, pady=10)
-        ttk.Label(metrics_card, textvariable=self.diff_value, style="Value.TLabel", foreground="#00d9ff").grid(row=1, column=1, sticky="w", padx=10)
-        ttk.Label(metrics_card, text="Status:", style="Card.TLabel").grid(row=1, column=2, sticky="w", padx=15)
-        self.status_label = ttk.Label(metrics_card, textvariable=self.status_value, style="StatusWarn.TLabel")
-        self.status_label.grid(row=1, column=3, sticky="w", padx=10)
-        
-        ttk.Label(metrics_card, text="P/L:", style="Card.TLabel").grid(row=2, column=0, sticky="w", padx=15, pady=10)
-        ttk.Label(metrics_card, textvariable=self.profit_loss_value, style="Value.TLabel").grid(row=2, column=1, sticky="w", padx=10)
-        ttk.Label(metrics_card, text="Total P/L:", style="Card.TLabel").grid(row=2, column=2, sticky="w", padx=15)
-        ttk.Label(metrics_card, textvariable=self.total_profit_loss_value, style="Value.TLabel").grid(row=2, column=3, sticky="w", padx=10)
-
-        ttk.Label(metrics_card, text="Entry Number:", style="Card.TLabel").grid(row=3, column=0, sticky="w", padx=15, pady=10)
-        ttk.Label(metrics_card, textvariable=self.entry_number_value, style="Value.TLabel").grid(row=3, column=1, sticky="w", padx=10)
-        ttk.Label(metrics_card, text="Time In Trade:", style="Card.TLabel").grid(row=3, column=2, sticky="w", padx=15)
-        ttk.Label(metrics_card, textvariable=self.time_in_trade_value, style="Value.TLabel").grid(row=3, column=3, sticky="w", padx=10)
-        
-        # Trading config card
-        trade_card = self.create_card(scrollable, "⚙️ Trading Config")
+        # Trading Config (compact)
+        trade_card = self.create_card(left, "⚙️ Trading Config")
         trade_card.columnconfigure(1, weight=1)
         trade_card.columnconfigure(3, weight=1)
         
-        ttk.Label(trade_card, text="Check Interval (s):", style="Card.TLabel").grid(row=0, column=0, sticky="w", padx=15, pady=8)
-        ttk.Entry(trade_card, textvariable=self.interval_value, width=10).grid(row=0, column=1, sticky="w", padx=10)
-        ttk.Label(trade_card, text="Min Diff:", style="Card.TLabel").grid(row=0, column=2, sticky="w", padx=15)
-        ttk.Entry(trade_card, textvariable=self.auto_sim_threshold_value, width=10).grid(row=0, column=3, sticky="w", padx=10)
+        ttk.Label(trade_card, text="Interval:", style="Card.TLabel").grid(row=0, column=0, sticky="w", padx=10, pady=3)
+        ttk.Entry(trade_card, textvariable=self.interval_value, width=6).grid(row=0, column=1, sticky="w", padx=8)
+        ttk.Label(trade_card, text="Min Diff:", style="Card.TLabel").grid(row=0, column=2, sticky="w", padx=10)
+        ttk.Entry(trade_card, textvariable=self.auto_sim_threshold_value, width=6).grid(row=0, column=3, sticky="w", padx=8)
         
-        ttk.Label(trade_card, text="Cooldown (s):", style="Card.TLabel").grid(row=1, column=0, sticky="w", padx=15, pady=8)
-        ttk.Entry(trade_card, textvariable=self.auto_sim_cooldown_value, width=10).grid(row=1, column=1, sticky="w", padx=10)
-        ttk.Label(trade_card, text="Contracts:", style="Card.TLabel").grid(row=1, column=2, sticky="w", padx=15)
-        ttk.Entry(trade_card, textvariable=self.contract_size_value, width=10).grid(row=1, column=3, sticky="w", padx=10)
+        ttk.Label(trade_card, text="Cooldown:", style="Card.TLabel").grid(row=1, column=0, sticky="w", padx=10, pady=3)
+        ttk.Entry(trade_card, textvariable=self.auto_sim_cooldown_value, width=6).grid(row=1, column=1, sticky="w", padx=8)
+        ttk.Label(trade_card, text="Contracts:", style="Card.TLabel").grid(row=1, column=2, sticky="w", padx=10)
+        ttk.Entry(trade_card, textvariable=self.contract_size_value, width=6).grid(row=1, column=3, sticky="w", padx=8)
         
-        ttk.Label(trade_card, text="Stop Loss (pts):", style="Card.TLabel").grid(row=2, column=0, sticky="w", padx=15, pady=8)
-        ttk.Entry(trade_card, textvariable=self.stop_loss_points_value, width=10).grid(row=2, column=1, sticky="w", padx=10)
-        ttk.Label(trade_card, text="Take Profit (pts):", style="Card.TLabel").grid(row=2, column=2, sticky="w", padx=15)
-        ttk.Entry(trade_card, textvariable=self.take_profit_points_value, width=10).grid(row=2, column=3, sticky="w", padx=10)
+        ttk.Label(trade_card, text="SL (pts):", style="Card.TLabel").grid(row=2, column=0, sticky="w", padx=10, pady=3)
+        ttk.Entry(trade_card, textvariable=self.stop_loss_points_value, width=6).grid(row=2, column=1, sticky="w", padx=8)
+        ttk.Label(trade_card, text="TP (pts):", style="Card.TLabel").grid(row=2, column=2, sticky="w", padx=10)
+        ttk.Entry(trade_card, textvariable=self.take_profit_points_value, width=6).grid(row=2, column=3, sticky="w", padx=8)
         
-        ttk.Label(trade_card, text="$ per Point:", style="Card.TLabel").grid(row=3, column=0, sticky="w", padx=15, pady=8)
-        ttk.Entry(trade_card, textvariable=self.point_value_value, width=10).grid(row=3, column=1, sticky="w", padx=10)
-        ttk.Label(trade_card, text="Trade Status:", style="Card.TLabel").grid(row=3, column=2, sticky="w", padx=15)
-        ttk.Label(trade_card, textvariable=self.auto_sim_status_value, foreground="#00d9a3").grid(row=3, column=3, sticky="w", padx=10)
+        # RIGHT COLUMN
+        right = ttk.Frame(content)
+        right.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        right.columnconfigure(0, weight=1)
         
-        # Learning card
-        learn_card = self.create_card(scrollable, "🧠 Adaptive Learning")
-        learn_card.columnconfigure(1, weight=1)
-        learn_card.columnconfigure(3, weight=1)
+        # Live Metrics
+        metrics_card = self.create_card(right, "📊 Live Metrics")
+        metrics_card.columnconfigure(1, weight=1)
+        metrics_card.columnconfigure(3, weight=1)
         
-        cb = ttk.Checkbutton(learn_card, text="Enable Learning", variable=self.learning_enabled_value, command=self.on_learning_toggle)
-        cb.grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=8)
+        ttk.Label(metrics_card, text="Topstep:", style="Card.TLabel").grid(row=0, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.left_value, style="Value.TLabel").grid(row=0, column=1, sticky="w", padx=8)
         
-        ttk.Label(learn_card, text="Status:", style="Card.TLabel").grid(row=0, column=2, sticky="w", padx=15)
-        ttk.Label(learn_card, textvariable=self.learning_status_value, foreground=("#00d9a3")).grid(row=0, column=3, sticky="w", padx=10)
+        ttk.Label(metrics_card, text="Tradovate:", style="Card.TLabel").grid(row=1, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.right_value, style="Value.TLabel").grid(row=1, column=1, sticky="w", padx=8)
         
-        ttk.Button(learn_card, text="Reset Learning", command=self.reset_learning_state).grid(row=1, column=0, sticky="w", padx=15, pady=8)
+        ttk.Label(metrics_card, text="Difference:", style="Card.TLabel").grid(row=2, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.diff_value, style="Value.TLabel", foreground="#00d9ff").grid(row=2, column=1, sticky="w", padx=8)
+        
+        ttk.Label(metrics_card, text="P/L:", style="Card.TLabel").grid(row=3, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.profit_loss_value, style="Value.TLabel").grid(row=3, column=1, sticky="w", padx=8)
+        
+        ttk.Label(metrics_card, text="Total P/L:", style="Card.TLabel").grid(row=4, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.total_profit_loss_value, style="Value.TLabel").grid(row=4, column=1, sticky="w", padx=8)
+
+        ttk.Label(metrics_card, text="Entry #:", style="Card.TLabel").grid(row=5, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.entry_number_value, style="Value.TLabel").grid(row=5, column=1, sticky="w", padx=8)
+        ttk.Label(metrics_card, text="Side:", style="Card.TLabel").grid(row=5, column=2, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.entry_side_value, style="Value.TLabel").grid(row=5, column=3, sticky="w", padx=8)
+        
+        ttk.Label(metrics_card, text="Time In Trade:", style="Card.TLabel").grid(row=6, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.time_in_trade_value, style="Value.TLabel").grid(row=6, column=1, sticky="w", padx=8)
+        ttk.Label(metrics_card, text="Session:", style="Card.TLabel").grid(row=6, column=2, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.current_session_value, style="Value.TLabel").grid(row=6, column=3, sticky="w", padx=8)
+        
+        # Live Trade Mirror
+        mirror_card = self.create_card(right, "🔄 Live Trade Mirror")
+        mirror_card.columnconfigure(1, weight=1)
+        
+        ttk.Label(mirror_card, text="Status:", style="Card.TLabel").grid(row=0, column=0, sticky="w", padx=10, pady=3)
+        self.status_label = ttk.Label(mirror_card, textvariable=self.status_value, style="StatusWarn.TLabel")
+        self.status_label.grid(row=0, column=1, sticky="w", padx=8)
+        
+        ttk.Label(mirror_card, text="Live Trading:", style="Card.TLabel").grid(row=1, column=0, sticky="w", padx=10, pady=3)
+        live_trades_mirror_label = ttk.Label(mirror_card, style="Value.TLabel")
+        live_trades_mirror_label.grid(row=1, column=1, sticky="w", padx=8)
+        
+        def update_live_trades_mirror_label(*_args):
+            status = "🟢 ENABLED" if self.live_trades_enabled_value.get() else "🔴 DISABLED"
+            live_trades_mirror_label.configure(text=status, foreground="#00d9a3" if self.live_trades_enabled_value.get() else "#ff6b6b")
+        
+        self.live_trades_enabled_value.trace_add("write", update_live_trades_mirror_label)
+        update_live_trades_mirror_label()
         
         return view
     
@@ -1298,17 +1316,20 @@ class NumberDiffApp(tk.Tk):
             entry_topstep = self.auto_entry_meta.get("entry_topstep")
             self.entry_time_value.set(entry_timestamp)
             self.entry_number_value.set(format_number(entry_topstep) if entry_topstep is not None else "-")
+            self.entry_side_value.set("BUY" if self.auto_position_side > 0 else "SELL")
             if isinstance(entry_epoch, (int, float)):
                 elapsed = int(now_epoch - float(entry_epoch))
                 self.time_in_trade_value.set(self.format_duration(elapsed))
                 return
         self.entry_time_value.set("-")
         self.entry_number_value.set("-")
+        self.entry_side_value.set("-")
         self.time_in_trade_value.set("-")
 
     def tick_utc_minus5_clock(self):
         now_text = self.get_utc_minus5_now().strftime("%Y-%m-%d %H:%M:%S")
         self.utc_minus5_time_value.set(now_text)
+        self.current_session_value.set(self.get_current_session_name())
         self.refresh_trade_timing_display()
         self.refresh_feed_health_display()
         self.utc_clock_job = self.after(1000, self.tick_utc_minus5_clock)
@@ -1579,13 +1600,37 @@ class NumberDiffApp(tk.Tk):
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
-                    response = json.dumps({"enabled": app.live_trades_enabled_value.get()})
+                    live_enabled = bool(app.live_trades_enabled_value.get())
+                    action_buttons_active = bool(app.running and live_enabled)
+                    command = app.pop_live_trade_command() if action_buttons_active else None
+                    response = json.dumps(
+                        {
+                            "enabled": live_enabled,
+                            "monitoring": bool(app.running),
+                            "actionButtonsActive": action_buttons_active,
+                            "command": command,
+                        }
+                    )
                     self.wfile.write(response.encode("utf-8"))
                 else:
                     self.send_response(404)
                     self.end_headers()
 
             def do_POST(self):
+                if self.path == "/live-trade-command-ack":
+                    content_length = int(self.headers.get("Content-Length", "0"))
+                    raw = self.rfile.read(content_length)
+                    try:
+                        payload = json.loads(raw.decode("utf-8"))
+                    except Exception:
+                        payload = {}
+                    app.after(0, app.handle_live_trade_command_ack, payload)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"ok":true}')
+                    return
+
                 if self.path != "/extension-feed":
                     self.send_response(404)
                     self.end_headers()
@@ -1603,10 +1648,16 @@ class NumberDiffApp(tk.Tk):
 
                 print(f"[✓ RECEIVED] Extension data: {payload}")
                 app.after(0, app.handle_extension_payload, payload)
+
+                slot = str(payload.get("slot", "")).strip().lower()
+                command = None
+                if slot in ("topstep", "tradovate") and app.running and app.live_trades_enabled_value.get():
+                    command = app.pop_live_trade_command()
+
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(b'{\"ok\":true}')
+                self.wfile.write(json.dumps({"ok": True, "command": command}).encode("utf-8"))
 
             def log_message(self, _format, *_args):
                 return
@@ -1681,6 +1732,46 @@ class NumberDiffApp(tk.Tk):
             writer = csv.writer(file)
             writer.writerow(row)
 
+    def get_live_trade_command_slot(self, action: str, trigger_source: str):
+        source = str(trigger_source or "").upper()
+        if source == "AUTO_ENTRY":
+            return "buy-button" if action == "BUY" else "sell-button"
+        if source in ("AUTO_TP", "AUTO_SL"):
+            return "close-button"
+        return "buy-button" if action == "BUY" else "sell-button"
+
+    def enqueue_live_trade_command(self, slot: str, action: str, trigger_source: str, diff: float | None, note: str):
+        self.live_trade_command_seq += 1
+        payload = {
+            "id": self.live_trade_command_seq,
+            "slot": slot,
+            "action": action,
+            "trigger": trigger_source,
+            "diff": diff,
+            "note": note,
+            "timestamp": self.get_utc_minus5_timestamp(),
+        }
+        with self.extension_lock:
+            self.live_trade_commands.append(payload)
+        print(f"[LIVE QUEUE] queued command #{payload['id']} {slot} ({trigger_source})")
+
+    def pop_live_trade_command(self):
+        with self.extension_lock:
+            if not self.live_trade_commands:
+                return None
+            return self.live_trade_commands.popleft()
+
+    def handle_live_trade_command_ack(self, payload):
+        command_id = payload.get("id")
+        slot = str(payload.get("slot", "")).strip()
+        ok = bool(payload.get("ok"))
+        text = str(payload.get("text", "")).strip()
+        error = str(payload.get("error", "")).strip()
+        if ok:
+            print(f"[LIVE ACK] command #{command_id} executed on {slot} ({text or 'ok'})")
+        else:
+            print(f"[LIVE ACK] command #{command_id} failed on {slot}: {error or 'unknown error'}")
+
     def execute_paper_trade(
         self,
         action: str,
@@ -1699,6 +1790,9 @@ class NumberDiffApp(tk.Tk):
             parts.append(note)
         details = " | ".join(parts)
         self.record_order_action(action, trigger_source, details, "IN_APP_SIM")
+        if self.live_trades_enabled_value.get() and self.running:
+            command_slot = self.get_live_trade_command_slot(action, trigger_source)
+            self.enqueue_live_trade_command(command_slot, action, trigger_source, diff, note)
         if set_main_status:
             self.set_status(f"{action} paper trade ({trigger_source})", "warn")
         return True

@@ -18,7 +18,8 @@
     currentSlot = null;
 
     document.removeEventListener("mousemove", onMove, true);
-    document.removeEventListener("click", onClick, true);
+    document.removeEventListener("mousedown", onMouseDown, true);
+    document.removeEventListener("click", onClickBlock, true);
     document.removeEventListener("keydown", onKeydown, true);
 
     document.documentElement.style.cursor = oldCursor;
@@ -113,25 +114,66 @@
     tip.style.top = `${Math.min(window.innerHeight - 40, event.clientY + 12)}px`;
   }
 
-  function onClick(event) {
+  function onMouseDown(event) {
     if (!active) {
+      return;
+    }
+    if (event.button !== 0) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation();
 
     const el = event.target;
     const selector = buildSelector(el);
     const previewText = (el.innerText || el.textContent || "").trim().slice(0, 200);
 
-    chrome.runtime.sendMessage({
-      type: "picked",
-      slot: currentSlot,
-      selector,
-      previewText
-    });
+    const selectedSlot = currentSlot;
+    chrome.runtime.sendMessage(
+      {
+        type: "picked",
+        slot: selectedSlot,
+        selector,
+        previewText
+      },
+      (response) => {
+        const runtimeError = chrome.runtime.lastError;
+        if (runtimeError) {
+          ensureTip();
+          tip.textContent = `Pick failed: ${runtimeError.message || "background unavailable"}. Try again.`;
+          tip.style.left = "16px";
+          tip.style.top = "16px";
+          return;
+        }
 
-    cleanup();
+        if (!response || !response.ok) {
+          ensureTip();
+          const msg = (response && response.error) ? response.error : "Selection was not saved. Try again.";
+          tip.textContent = `Pick failed: ${msg}`;
+          tip.style.left = "16px";
+          tip.style.top = "16px";
+          return;
+        }
+
+        ensureTip();
+        tip.textContent = `Saved ${selectedSlot}.`;
+        tip.style.left = "16px";
+        tip.style.top = "16px";
+        setTimeout(() => {
+          cleanup();
+        }, 250);
+      }
+    );
+  }
+
+  function onClickBlock(event) {
+    if (!active) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
   }
 
   function onKeydown(event) {
@@ -148,7 +190,8 @@
     document.documentElement.style.cursor = "crosshair";
     document.body.style.cursor = "crosshair";
     document.addEventListener("mousemove", onMove, true);
-    document.addEventListener("click", onClick, true);
+    document.addEventListener("mousedown", onMouseDown, true);
+    document.addEventListener("click", onClickBlock, true);
     document.addEventListener("keydown", onKeydown, true);
     ensureTip();
     tip.textContent = `Picking ${currentSlot}. Move mouse and click element. ESC to cancel.`;

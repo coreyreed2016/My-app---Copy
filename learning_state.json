@@ -4610,10 +4610,10 @@
       ]
     },
     "Asia": {
-      "threshold_offset": 1.1632520821121581,
-      "cooldown_mult": 1.5903811890750874,
-      "tp_offset": -0.21,
-      "sl_offset": -0.35,
+      "threshold_offset": 1.1344601426463072,
+      "cooldown_mult": 1.5614466364585387,
+      "tp_offset": -0.3234000000000001,
+      "sl_offset": -0.5389999999999999,
       "trades": [
         {
           "ts": "2026-03-25 17:01:55",
@@ -6495,66 +6495,66 @@
           "pnl": -94.0,
           "is_win": false,
           "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-26 18:21:29",
+          "entry_hour_utc5": 18,
+          "entry_diff": -2.5,
+          "entry_side": "BUY",
+          "entry_session": "Asia",
+          "points_move": -4.65,
+          "pnl": -93.0,
+          "is_win": false,
+          "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-26 21:00:07",
+          "entry_hour_utc5": 21,
+          "entry_diff": 1.75,
+          "entry_side": "SELL",
+          "entry_session": "Asia",
+          "points_move": 4.76,
+          "pnl": 95.19999999999999,
+          "is_win": true,
+          "exit_reason": "TP"
+        },
+        {
+          "ts": "2026-03-26 21:15:04",
+          "entry_hour_utc5": 21,
+          "entry_diff": 2.5,
+          "entry_side": "SELL",
+          "entry_session": "Asia",
+          "points_move": -4.55,
+          "pnl": -91.0,
+          "is_win": false,
+          "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-26 21:23:41",
+          "entry_hour_utc5": 21,
+          "entry_diff": -2.75,
+          "entry_side": "BUY",
+          "entry_session": "Asia",
+          "points_move": -4.5,
+          "pnl": -90.0,
+          "is_win": false,
+          "exit_reason": "SL"
+        },
+        {
+          "ts": "2026-03-26 21:36:04",
+          "entry_hour_utc5": 21,
+          "entry_diff": -2.5,
+          "entry_side": "BUY",
+          "entry_session": "Asia",
+          "points_move": -4.45,
+          "pnl": -89.0,
+          "is_win": false,
+          "exit_reason": "SL"
         }
       ]
     }
   },
   "samples": [
-    {
-      "ts": "2026-03-26 06:27:51",
-      "entry_hour_utc5": 6,
-      "entry_diff": -1.0,
-      "entry_side": "BUY",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
-    {
-      "ts": "2026-03-26 06:28:42",
-      "entry_hour_utc5": 6,
-      "entry_diff": -2.25,
-      "entry_side": "BUY",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
-    {
-      "ts": "2026-03-26 06:30:08",
-      "entry_hour_utc5": 6,
-      "entry_diff": -1.0,
-      "entry_side": "BUY",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
-    {
-      "ts": "2026-03-26 06:31:10",
-      "entry_hour_utc5": 6,
-      "entry_diff": 2.0,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": -5.0,
-      "pnl": -100.0,
-      "is_win": false,
-      "exit_reason": "SL"
-    },
-    {
-      "ts": "2026-03-26 06:31:49",
-      "entry_hour_utc5": 6,
-      "entry_diff": 1.0,
-      "entry_side": "SELL",
-      "entry_session": "Off Session",
-      "points_move": 5.0,
-      "pnl": 100.0,
-      "is_win": true,
-      "exit_reason": "TP"
-    },
     {
       "ts": "2026-03-26 06:32:30",
       "entry_hour_utc5": 6,
@@ -11997,6 +11997,61 @@
       "entry_session": "Asia",
       "points_move": -4.7,
       "pnl": -94.0,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-26 18:21:29",
+      "entry_hour_utc5": 18,
+      "entry_diff": -2.5,
+      "entry_side": "BUY",
+      "entry_session": "Asia",
+      "points_move": -4.65,
+      "pnl": -93.0,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-26 21:00:07",
+      "entry_hour_utc5": 21,
+      "entry_diff": 1.75,
+      "entry_side": "SELL",
+      "entry_session": "Asia",
+      "points_move": 4.76,
+      "pnl": 95.19999999999999,
+      "is_win": true,
+      "exit_reason": "TP"
+    },
+    {
+      "ts": "2026-03-26 21:15:04",
+      "entry_hour_utc5": 21,
+      "entry_diff": 2.5,
+      "entry_side": "SELL",
+      "entry_session": "Asia",
+      "points_move": -4.55,
+      "pnl": -91.0,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-26 21:23:41",
+      "entry_hour_utc5": 21,
+      "entry_diff": -2.75,
+      "entry_side": "BUY",
+      "entry_session": "Asia",
+      "points_move": -4.5,
+      "pnl": -90.0,
+      "is_win": false,
+      "exit_reason": "SL"
+    },
+    {
+      "ts": "2026-03-26 21:36:04",
+      "entry_hour_utc5": 21,
+      "entry_diff": -2.5,
+      "entry_side": "BUY",
+      "entry_session": "Asia",
+      "points_move": -4.45,
+      "pnl": -89.0,
       "is_win": false,
       "exit_reason": "SL"
     }

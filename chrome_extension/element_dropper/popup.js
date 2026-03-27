@@ -43,11 +43,21 @@ function setSlotState(slot, state) {
   const clearButton = document.querySelector(`.clear-btn[data-slot="${slot}"]`);
   const locked = !!(target && target.selector);
 
-  selectorEl.textContent = `Selector: ${target && target.selector ? target.selector : "-"}`;
-  previewEl.textContent = `Preview: ${target && target.previewText ? target.previewText : "-"}`;
-  valueEl.textContent = `Value: ${latest && latest.text ? latest.text : "-"}`;
-  updatedEl.textContent = `Updated: ${formatTime(latest && latest.updatedAt)}`;
-  pageEl.textContent = `Page: ${formatPage(target, latest)}`;
+  if (selectorEl) {
+    selectorEl.textContent = `Selector: ${target && target.selector ? target.selector : "-"}`;
+  }
+  if (previewEl) {
+    previewEl.textContent = `Preview: ${target && target.previewText ? target.previewText : "-"}`;
+  }
+  if (valueEl) {
+    valueEl.textContent = `Value: ${latest && latest.text ? latest.text : "-"}`;
+  }
+  if (updatedEl) {
+    updatedEl.textContent = `Updated: ${formatTime(latest && latest.updatedAt)}`;
+  }
+  if (pageEl) {
+    pageEl.textContent = `Page: ${formatPage(target, latest)}`;
+  }
   if (pickButton) {
     pickButton.disabled = locked;
     pickButton.title = locked ? "Clear this slot first to pick a new element." : "";
@@ -67,6 +77,18 @@ function renderState(state) {
   endpointInput.value = state.endpoint || "";
   setSlotState("topstep", state);
   setSlotState("tradovate", state);
+  
+  // Show/hide action buttons section based on app activation signal
+  const actionButtonsSection = document.getElementById("action-buttons-section");
+  if (state.actionButtonsActive) {
+    actionButtonsSection.style.display = "block";
+    // Set state for action button slots
+    setSlotState("buy-button", state);
+    setSlotState("sell-button", state);
+    setSlotState("close-button", state);
+  } else {
+    actionButtonsSection.style.display = "none";
+  }
 
   const appConnection = state.appConnection || {};
   if (appConnection.ok === true) {
@@ -122,8 +144,8 @@ for (const button of document.querySelectorAll(".pick-btn")) {
     const slot = button.getAttribute("data-slot");
     const response = await sendMessage({ type: "beginPick", slot });
     if (response && response.ok) {
-      setStatus(`Pick mode started for ${slot}.`);
-      window.close();
+      setStatus(`Pick mode started for ${slot}. Click an element on the page.`);
+      // Keep popup open - it will refresh when pick completes
     } else {
       setStatus(response && response.error ? response.error : "Could not start pick mode.");
     }
@@ -140,8 +162,8 @@ for (const button of document.querySelectorAll(".repick-btn")) {
     }
     const response = await sendMessage({ type: "beginPick", slot });
     if (response && response.ok) {
-      setStatus(`Repick mode started for ${slot}.`);
-      window.close();
+      setStatus(`Repick mode started for ${slot}. Click an element on the page.`);
+      // Keep popup open - it will refresh when pick completes
     } else {
       setStatus(response && response.error ? response.error : "Could not start repick mode.");
     }
@@ -174,14 +196,19 @@ document.getElementById("refresh-now").addEventListener("click", async () => {
 for (const button of document.querySelectorAll(".test-btn")) {
   button.addEventListener("click", async () => {
     const slot = button.getAttribute("data-slot");
-    const response = await sendMessage({ type: "pollSlot", slot });
+    const isActionSlot = ["buy-button", "sell-button", "close-button"].includes(slot);
+    const response = await sendMessage({ type: isActionSlot ? "testActionSlot" : "pollSlot", slot });
     if (response && response.ok) {
       renderState(response.state);
-      const latest = response.state && response.state.latest ? response.state.latest[slot] : null;
-      if (latest && latest.text) {
-        setStatus(`${slot} test captured: ${latest.text}`);
+      if (isActionSlot) {
+        setStatus(`${slot} action fired${response.text ? `: ${response.text}` : "."}`);
       } else {
-        setStatus(`${slot} test ran, but no element text was found.`);
+        const latest = response.state && response.state.latest ? response.state.latest[slot] : null;
+        if (latest && latest.text) {
+          setStatus(`${slot} test captured: ${latest.text}`);
+        } else {
+          setStatus(`${slot} test ran, but no element text was found.`);
+        }
       }
     } else {
       setStatus(response && response.error ? response.error : `Could not test ${slot}.`);
@@ -216,12 +243,21 @@ document.getElementById("test-endpoint").addEventListener("click", async () => {
 });
 
 document.getElementById("toggle-live-trades").addEventListener("click", async () => {
-  const response = await sendMessage({ type: "toggleLiveTrades" });
-  if (response && response.ok) {
-    setStatus("Live trades toggled.");
-    refresh();
-  } else {
-    setStatus(response && response.error ? response.error : "Could not toggle live trades.");
+  try {
+    const response = await sendMessage({ type: "toggleLiveTrades" });
+    if (response && response.ok) {
+      setStatus("Live trades toggled.");
+      // Delay to let app process, then refresh
+      setTimeout(() => refresh(), 500);
+    } else {
+      const error = response && response.error ? response.error : "Could not toggle live trades.";
+      setStatus(error);
+      console.error("Toggle error:", error);
+    }
+  } catch (err) {
+    const error = err?.message || "Toggle failed";
+    setStatus(error);
+    console.error("Toggle exception:", err);
   }
 });
 

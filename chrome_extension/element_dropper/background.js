@@ -2,19 +2,33 @@ const DEFAULT_STATE = {
   endpoint: "http://127.0.0.1:8765/extension-feed",
   targets: {
     topstep: null,
-    tradovate: null
+    tradovate: null,
+    "buy-button": null,
+    "sell-button": null,
+    "close-button": null
   },
   latest: {
     topstep: null,
-    tradovate: null
+    tradovate: null,
+    "buy-button": null,
+    "sell-button": null,
+    "close-button": null
   },
   appConnection: {
     ok: null,
     lastSuccessAt: null,
     lastError: ""
   },
-  liveTrades: false
+  liveTrades: false,
+  actionButtonsActive: false
 };
+
+const ACTION_SLOTS = ["buy-button", "sell-button", "close-button"];
+const FAST_POLL_MS = 250;
+const IDLE_POLL_MS = 800;
+
+let pollLoopTimer = null;
+let pollLoopInFlight = false;
 
 async function getState() {
   const stored = await chrome.storage.local.get(["state"]);
@@ -32,7 +46,11 @@ async function getState() {
     appConnection: {
       ...DEFAULT_STATE.appConnection,
       ...((stored.state || {}).appConnection || {})
-    }
+    },
+    liveTrades: (stored.state || {}).liveTrades !== undefined ? (stored.state || {}).liveTrades : DEFAULT_STATE.liveTrades,
+    actionButtonsActive: (stored.state || {}).actionButtonsActive !== undefined
+      ? (stored.state || {}).actionButtonsActive
+      : DEFAULT_STATE.actionButtonsActive
   };
 }
 
@@ -52,6 +70,60 @@ async function ensureAlarm() {
   if (!alarm) {
     await chrome.alarms.create("poll-targets", { periodInMinutes: 1 / 60 });
   }
+}
+
+function hasConfiguredFeedTargets(state) {
+  const topstep = state && state.targets ? state.targets.topstep : null;
+  const tradovate = state && state.targets ? state.targets.tradovate : null;
+  return !!(
+    topstep && topstep.selector && topstep.tabId &&
+    tradovate && tradovate.selector && tradovate.tabId
+  );
+}
+
+function getPollDelayMs(state) {
+  return hasConfiguredFeedTargets(state) ? FAST_POLL_MS : IDLE_POLL_MS;
+}
+
+function scheduleNextPoll(delayMs) {
+  if (pollLoopTimer !== null) {
+    clearTimeout(pollLoopTimer);
+  }
+  const safeDelay = Math.max(0, Number(delayMs) || 0);
+  pollLoopTimer = setTimeout(() => {
+    pollLoopTimer = null;
+    void runPollingLoopTick();
+  }, safeDelay);
+}
+
+async function runPollingLoopTick() {
+  if (pollLoopInFlight) {
+    scheduleNextPoll(FAST_POLL_MS);
+    return;
+  }
+  pollLoopInFlight = true;
+  let nextDelay = IDLE_POLL_MS;
+  try {
+    const state = await pollAll();
+    nextDelay = getPollDelayMs(state);
+  } catch (_err) {
+    nextDelay = FAST_POLL_MS;
+  } finally {
+    pollLoopInFlight = false;
+  }
+  scheduleNextPoll(nextDelay);
+}
+
+async function startPollingLoop() {
+  if (pollLoopInFlight || pollLoopTimer !== null) {
+    return;
+  }
+  const state = await getState();
+  scheduleNextPoll(getPollDelayMs(state));
+}
+
+function nudgePollingLoop() {
+  scheduleNextPoll(0);
 }
 
 async function beginPick(slot) {
@@ -150,7 +222,13 @@ async function postToApp(slot, text, state) {
         error: `App responded with ${response.status}`
       };
     }
-    return { ok: true };
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (_err) {
+      data = null;
+    }
+    return { ok: true, command: data && data.command ? data.command : null };
   } catch (_err) {
     return {
       ok: false,
@@ -210,16 +288,137 @@ async function pollSlot(slot, state) {
   };
 
   const postResult = await postToApp(slot, text, state);
+  let nextState = {
+    ...state,
+    latest,
+    appConnection: buildAppConnectionState(postResult.ok, postResult.error)
+  };
+  if (postResult.command) {
+    nextState = await processLiveTradeCommand(nextState, postResult.command);
+  }
+  return nextState;
+}
+
+async function triggerActionSlot(slot, state) {
+  const target = state.targets[slot];
+  if (!target || !target.selector || !target.tabId) {
+    throw new Error(`${slot} is not configured. Pick an element first.`);
+  }
+
+  if (!state.actionButtonsActive) {
+    throw new Error("Action buttons are inactive. Enable Live Trading and start monitoring first.");
+  }
+
+  let result = null;
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: target.tabId },
+      func: (selector) => {
+        const el = document.querySelector(selector);
+        if (!el) {
+          return { ok: false, error: "Element not found on page." };
+        }
+
+        const before = (el.innerText || el.textContent || "").trim();
+        if (typeof el.scrollIntoView === "function") {
+          el.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+        }
+        try {
+          el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true }));
+          el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+          el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, button: 0 }));
+        } catch (_err) {
+          // Continue to click fallback.
+        }
+        if (typeof el.click === "function") {
+          el.click();
+        }
+        const after = (el.innerText || el.textContent || "").trim();
+        return { ok: true, text: after || before || "clicked" };
+      },
+      args: [target.selector]
+    });
+    result = results && results[0] ? results[0].result : null;
+  } catch (_err) {
+    result = null;
+  }
+
+  if (!result || !result.ok) {
+    const msg = (result && result.error) ? result.error : "Could not run action click on target page.";
+    throw new Error(msg);
+  }
+
+  const text = result.text || "clicked";
+  const latest = {
+    ...state.latest,
+    [slot]: {
+      text,
+      selector: target.selector,
+      tabId: target.tabId,
+      pageUrl: target.pageUrl,
+      pageTitle: target.pageTitle,
+      updatedAt: new Date().toISOString(),
+      lastError: ""
+    }
+  };
+
+  const postResult = await postToApp(slot, text, state);
   const nextState = {
     ...state,
     latest,
     appConnection: buildAppConnectionState(postResult.ok, postResult.error)
   };
-  return nextState;
+  return { state: nextState, text };
+}
+
+async function ackLiveTradeCommand(state, command, ok, text = "", error = "") {
+  if (!command || command.id === undefined || command.id === null) {
+    return;
+  }
+  const payload = {
+    id: command.id,
+    slot: command.slot,
+    ok: !!ok,
+    text: text || "",
+    error: error || "",
+    timestamp: new Date().toISOString()
+  };
+  try {
+    await fetch(state.endpoint.replace("/extension-feed", "/live-trade-command-ack"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (_err) {
+    // Best-effort ack only.
+  }
+}
+
+async function processLiveTradeCommand(state, command) {
+  if (!command || !command.slot || !ACTION_SLOTS.includes(command.slot)) {
+    return state;
+  }
+  try {
+    const result = await triggerActionSlot(command.slot, state);
+    await ackLiveTradeCommand(result.state, command, true, result.text, "");
+    return result.state;
+  } catch (err) {
+    const message = err && err.message ? err.message : "Unknown command failure";
+    await ackLiveTradeCommand(state, command, false, "", message);
+    return {
+      ...state,
+      latest: {
+        ...state.latest,
+        [command.slot]: state.latest[command.slot]
+          ? { ...state.latest[command.slot], lastError: message }
+          : null
+      }
+    };
+  }
 }
 
 async function fetchLiveTradesStatus(state) {
-  // Fetch live trades status from app
+  // Fetch live trading and action button activation status from app.
   try {
     const response = await fetch(state.endpoint.replace("/extension-feed", "/live-trades-status"), {
       method: "GET",
@@ -227,19 +426,30 @@ async function fetchLiveTradesStatus(state) {
     });
     if (response.ok) {
       const data = await response.json();
-      return !!data.enabled;
+      return {
+        enabled: !!data.enabled,
+        actionButtonsActive: !!data.actionButtonsActive,
+        command: data.command || null
+      };
     }
   } catch (_err) {
     // If endpoint unavailable, try posting a query
   }
-  return false;
+  return {
+    enabled: false,
+    actionButtonsActive: false,
+    command: null
+  };
 }
 
 async function pollAll() {
   let state = await getState();
   state = await pollSlot("topstep", state);
   state = await pollSlot("tradovate", state);
-  state.liveTrades = await fetchLiveTradesStatus(state);
+  const liveState = await fetchLiveTradesStatus(state);
+  state.liveTrades = liveState.enabled;
+  state.actionButtonsActive = liveState.actionButtonsActive;
+  state = await processLiveTradeCommand(state, liveState.command);
   await setState(state);
   return state;
 }
@@ -247,7 +457,10 @@ async function pollAll() {
 async function pollOne(slot) {
   let state = await getState();
   state = await pollSlot(slot, state);
-  state.liveTrades = await fetchLiveTradesStatus(state);
+  const liveState = await fetchLiveTradesStatus(state);
+  state.liveTrades = liveState.enabled;
+  state.actionButtonsActive = liveState.actionButtonsActive;
+  state = await processLiveTradeCommand(state, liveState.command);
   await setState(state);
   return state;
 }
@@ -255,15 +468,18 @@ async function pollOne(slot) {
 chrome.runtime.onInstalled.addListener(async () => {
   await ensureAlarm();
   await setState(await getState());
+  await startPollingLoop();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await ensureAlarm();
+  await startPollingLoop();
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === "poll-targets") {
-    await pollAll();
+    const state = await pollAll();
+    scheduleNextPoll(getPollDelayMs(state));
   }
 });
 
@@ -281,6 +497,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
       const state = await updateState((prev) => ({ ...prev, endpoint }));
+      nudgePollingLoop();
       sendResponse({ ok: true, state });
       return;
     }
@@ -297,6 +514,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         targets: { ...prev.targets, [message.slot]: null },
         latest: { ...prev.latest, [message.slot]: null }
       }));
+      nudgePollingLoop();
       sendResponse({ ok: true, state });
       return;
     }
@@ -304,9 +522,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "clearAllSlots") {
       const state = await updateState((prev) => ({
         ...prev,
-        targets: { topstep: null, tradovate: null },
-        latest: { topstep: null, tradovate: null }
+        targets: { topstep: null, tradovate: null, "buy-button": null, "sell-button": null, "close-button": null },
+        latest: { topstep: null, tradovate: null, "buy-button": null, "sell-button": null, "close-button": null }
       }));
+      nudgePollingLoop();
       sendResponse({ ok: true, state });
       return;
     }
@@ -318,12 +537,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.type === "pollSlot") {
-      if (!["topstep", "tradovate"].includes(message.slot)) {
+      if (!["topstep", "tradovate", "buy-button", "sell-button", "close-button"].includes(message.slot)) {
         sendResponse({ ok: false, error: "Unknown slot." });
         return;
       }
       const state = await pollOne(message.slot);
       sendResponse({ ok: true, state });
+      return;
+    }
+
+    if (message.type === "testActionSlot") {
+      const slot = String(message.slot || "");
+      if (!ACTION_SLOTS.includes(slot)) {
+        sendResponse({ ok: false, error: "Unknown action slot." });
+        return;
+      }
+      const state = await getState();
+      const result = await triggerActionSlot(slot, state);
+      await setState(result.state);
+      sendResponse({ ok: true, state: result.state, clicked: true, text: result.text });
       return;
     }
 
@@ -410,6 +642,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       const updated = await pollSlot(message.slot, state);
       await setState(updated);
+      nudgePollingLoop();
       sendResponse({ ok: true, state: updated });
       return;
     }

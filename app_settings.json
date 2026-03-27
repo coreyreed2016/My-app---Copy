@@ -1,14 +1,14 @@
 {
-  "interval": "0.8",
+  "interval": "0.2",
   "contracts": "1",
   "dollars_per_point": "20",
   "extension_port": "8765",
   "auto_sim_threshold": "1",
-  "auto_sim_cooldown": "3",
+  "auto_sim_cooldown": "1",
   "stop_loss_points": "5",
   "take_profit_points": "5",
   "trade_window_enabled": false,
   "trade_window_start": "08:30",
   "trade_window_end": "15:00",
-  "live_trades_enabled": false
+  "live_trades_enabled": true
 }
