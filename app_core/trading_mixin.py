@@ -67,6 +67,15 @@ class TradingMixin:
         self.session_entries_value.set(f"{entries} / {max_entries}")
         self.session_pnl_value.set(f"{format_currency(pnl)} / {format_currency(profit_goal)}")
 
+    def ensure_session_guardrail_rollover(self):
+        session_key = self.get_current_session_cycle_key()
+        if self.active_session_guardrail_key != session_key:
+            # Start each new session cycle with fresh counters.
+            self.active_session_guardrail_key = session_key
+            self.session_guardrails[session_key] = {"entries": 0, "realized_pnl": 0.0}
+        self._refresh_session_guardrail_display(session_key)
+        return session_key
+
     def refresh_session_stats_table(self):
         if self.session_stats_tree is None:
             return
@@ -397,7 +406,7 @@ class TradingMixin:
         self.current_session_value.set(self.get_current_session_name())
         self.refresh_trade_timing_display()
         self.refresh_feed_health_display()
-        self._refresh_session_guardrail_display()
+        self.ensure_session_guardrail_rollover()
         self.utc_clock_job = self.after(1000, self.tick_utc_minus5_clock)
 
     def start_utc_minus5_clock(self):
@@ -481,7 +490,7 @@ class TradingMixin:
             self.auto_sim_status_value.set("Config error")
             return
         current_session = self.get_current_session_name()
-        current_session_key = self.get_current_session_cycle_key()
+        current_session_key = self.ensure_session_guardrail_rollover()
         threshold, cooldown = self.get_effective_auto_settings(threshold, cooldown, current_session)
         take_profit_points, stop_loss_points = self.get_effective_exit_settings(take_profit_points, stop_loss_points, current_session)
 
@@ -605,8 +614,8 @@ class TradingMixin:
             return
 
         guardrail_state = self.get_session_guardrail_state(current_session_key)
-        max_entries = max(1, int(self._safe_float(self.session_trade_limit, 30), 30))
-        profit_goal = max(0.0, float(self._safe_float(self.session_profit_goal, 800.0), 800.0))
+        max_entries = max(1, int(self._safe_float(self.session_trade_limit, 30)))
+        profit_goal = max(0.0, float(self._safe_float(self.session_profit_goal, 800.0)))
 
         if guardrail_state["entries"] >= max_entries:
             self.last_auto_signal = 0

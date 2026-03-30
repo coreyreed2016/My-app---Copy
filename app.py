@@ -104,6 +104,7 @@ class NumberDiffApp(tk.Tk, UIMixin, DataMixin, TradingMixin, RuntimeMixin):
         self.session_trade_limit = 30
         self.session_profit_goal = 800.0
         self.session_guardrails = {}
+        self.active_session_guardrail_key = ""
         self.session_profiles = {
             "New York": {"threshold_offset": 0.0, "cooldown_mult": 1.0, "tp_offset": 0.0, "sl_offset": 0.0, "trades": []},
             "London": {"threshold_offset": 0.0, "cooldown_mult": 1.0, "tp_offset": 0.0, "sl_offset": 0.0, "trades": []},
