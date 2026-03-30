@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from datetime import datetime, time as dt_time, timezone
+from datetime import datetime, time as dt_time, timedelta, timezone
 
 from app_core.common import TIME_INPUT_PATTERN, UTC_MINUS_5, format_currency, format_number
 
@@ -25,6 +25,47 @@ class TradingMixin:
 
     def get_current_session_name(self):
         return self.get_session_name_for_clock(self.get_utc_minus5_clock())
+
+    def get_current_session_cycle_key(self):
+        now_dt = self.get_utc_minus5_now()
+        session_name = self.get_session_name_for_clock(now_dt.timetz().replace(tzinfo=None))
+        session_date = now_dt.date()
+
+        # Asia spans across midnight, so 00:00-02:00 belongs to previous day's Asia session.
+        if session_name == "Asia" and now_dt.timetz().replace(tzinfo=None) <= dt_time(2, 0):
+            session_date = session_date - timedelta(days=1)
+
+        return f"{session_date.isoformat()}|{session_name}"
+
+    def get_session_guardrail_state(self, session_key: str):
+        state = self.session_guardrails.get(session_key)
+        if not isinstance(state, dict):
+            state = {"entries": 0, "realized_pnl": 0.0}
+            self.session_guardrails[session_key] = state
+        state["entries"] = int(self._safe_float(state.get("entries", 0), 0))
+        state["realized_pnl"] = float(self._safe_float(state.get("realized_pnl", 0.0), 0.0))
+        return state
+
+    def register_auto_entry_for_session(self, session_key: str):
+        state = self.get_session_guardrail_state(session_key)
+        state["entries"] += 1
+        self._refresh_session_guardrail_display(session_key)
+
+    def register_closed_trade_for_session(self, session_key: str, pnl: float):
+        state = self.get_session_guardrail_state(session_key)
+        state["realized_pnl"] += float(pnl)
+        self._refresh_session_guardrail_display(session_key)
+
+    def _refresh_session_guardrail_display(self, session_key: str | None = None):
+        if session_key is None:
+            session_key = self.get_current_session_cycle_key()
+        state = self.get_session_guardrail_state(session_key)
+        max_entries = max(1, int(self._safe_float(self.session_trade_limit, 30)))
+        profit_goal = max(0.0, float(self._safe_float(self.session_profit_goal, 800.0)))
+        entries = int(state.get("entries", 0))
+        pnl = float(state.get("realized_pnl", 0.0))
+        self.session_entries_value.set(f"{entries} / {max_entries}")
+        self.session_pnl_value.set(f"{format_currency(pnl)} / {format_currency(profit_goal)}")
 
     def refresh_session_stats_table(self):
         if self.session_stats_tree is None:
@@ -356,6 +397,7 @@ class TradingMixin:
         self.current_session_value.set(self.get_current_session_name())
         self.refresh_trade_timing_display()
         self.refresh_feed_health_display()
+        self._refresh_session_guardrail_display()
         self.utc_clock_job = self.after(1000, self.tick_utc_minus5_clock)
 
     def start_utc_minus5_clock(self):
@@ -363,6 +405,9 @@ class TradingMixin:
             self.after_cancel(self.utc_clock_job)
             self.utc_clock_job = None
         self.tick_utc_minus5_clock()
+
+    def tick_session_guardrail_display(self):
+        self._refresh_session_guardrail_display()
 
     def parse_time_input(self, value: str):
         match = TIME_INPUT_PATTERN.fullmatch(value or "")
@@ -436,6 +481,7 @@ class TradingMixin:
             self.auto_sim_status_value.set("Config error")
             return
         current_session = self.get_current_session_name()
+        current_session_key = self.get_current_session_cycle_key()
         threshold, cooldown = self.get_effective_auto_settings(threshold, cooldown, current_session)
         take_profit_points, stop_loss_points = self.get_effective_exit_settings(take_profit_points, stop_loss_points, current_session)
 
@@ -459,6 +505,8 @@ class TradingMixin:
                     exit_pnl = self.calculate_profit_loss(realized_points)
                     if exit_pnl is not None:
                         self.realized_total_profit_loss += exit_pnl
+                        entry_session_key = str(self.auto_entry_meta.get("entry_session_key", current_session_key)) if self.auto_entry_meta else current_session_key
+                        self.register_closed_trade_for_session(entry_session_key, exit_pnl)
                         self.record_difference(
                             topstep_num,
                             tradovate_num,
@@ -491,6 +539,8 @@ class TradingMixin:
                     exit_pnl = self.calculate_profit_loss(realized_points)
                     if exit_pnl is not None:
                         self.realized_total_profit_loss += exit_pnl
+                        entry_session_key = str(self.auto_entry_meta.get("entry_session_key", current_session_key)) if self.auto_entry_meta else current_session_key
+                        self.register_closed_trade_for_session(entry_session_key, exit_pnl)
                         self.record_difference(
                             topstep_num,
                             tradovate_num,
@@ -554,6 +604,20 @@ class TradingMixin:
             self.auto_sim_status_value.set(f"Cooldown {cooldown - elapsed:.1f}s")
             return
 
+        guardrail_state = self.get_session_guardrail_state(current_session_key)
+        max_entries = max(1, int(self._safe_float(self.session_trade_limit, 30), 30))
+        profit_goal = max(0.0, float(self._safe_float(self.session_profit_goal, 800.0), 800.0))
+
+        if guardrail_state["entries"] >= max_entries:
+            self.last_auto_signal = 0
+            self.auto_sim_status_value.set(f"Session max reached ({max_entries}/{max_entries})")
+            return
+
+        if guardrail_state["realized_pnl"] >= profit_goal:
+            self.last_auto_signal = 0
+            self.auto_sim_status_value.set(f"Session goal hit ({format_currency(guardrail_state['realized_pnl'])})")
+            return
+
         if signal == self.last_auto_signal:
             self.auto_sim_status_value.set("Signal unchanged")
             return
@@ -565,6 +629,7 @@ class TradingMixin:
             self.last_auto_signal = signal
             self.auto_position_side = signal
             self.auto_entry_diff = diff
+            self.register_auto_entry_for_session(current_session_key)
             self.record_difference(topstep_num, tradovate_num, diff, trade_result="ENTRY")
             self.last_diff_logged_key = (round(topstep_num, 6), round(tradovate_num, 6), round(diff, 6))
             entry_now = self.get_utc_minus5_now()
@@ -575,6 +640,7 @@ class TradingMixin:
                 "entry_side": action,
                 "entry_hour_utc5": entry_now.hour,
                 "entry_session": current_session,
+                "entry_session_key": current_session_key,
                 "effective_threshold": threshold,
                 "effective_cooldown": cooldown,
                 "entry_timestamp": entry_now.strftime("%Y-%m-%d %H:%M:%S"),

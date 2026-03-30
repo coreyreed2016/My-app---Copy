@@ -3,6 +3,11 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+try:
+    from tkcalendar import DateEntry
+except ImportError:
+    DateEntry = None
+
 
 class UIMixin:
     def build_ui(self):
@@ -223,7 +228,12 @@ class UIMixin:
         ttk.Label(metrics_card, textvariable=self.time_in_trade_value, style="Value.TLabel").grid(row=6, column=1, sticky="w", padx=8)
         ttk.Label(metrics_card, text="Session:", style="Card.TLabel").grid(row=6, column=2, sticky="w", padx=10, pady=3)
         ttk.Label(metrics_card, textvariable=self.current_session_value, style="Value.TLabel").grid(row=6, column=3, sticky="w", padx=8)
-        
+
+        ttk.Label(metrics_card, text="Ses. Trades:", style="Card.TLabel").grid(row=7, column=0, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.session_entries_value, foreground="#ffa500").grid(row=7, column=1, sticky="w", padx=8)
+        ttk.Label(metrics_card, text="Ses. P/L:", style="Card.TLabel").grid(row=7, column=2, sticky="w", padx=10, pady=3)
+        ttk.Label(metrics_card, textvariable=self.session_pnl_value, foreground="#ffa500").grid(row=7, column=3, sticky="w", padx=8)
+
         # Live Trade Mirror
         mirror_card = self.create_card(right, "🔄 Live Trade Mirror")
         mirror_card.columnconfigure(1, weight=1)
@@ -359,22 +369,35 @@ class UIMixin:
         )
         session_filter.pack(side="left")
         ttk.Label(toolbar, text="Start:").pack(side="left", padx=(12, 4))
-        start_entry = ttk.Entry(toolbar, textvariable=self.history_range_start_value, width=12)
+        if DateEntry is not None:
+            start_entry = DateEntry(toolbar, textvariable=self.history_range_start_value, width=12, date_pattern="yyyy-mm-dd")
+        else:
+            start_entry = ttk.Entry(toolbar, textvariable=self.history_range_start_value, width=12)
         start_entry.pack(side="left")
         ttk.Label(toolbar, text="End:").pack(side="left", padx=(8, 4))
-        end_entry = ttk.Entry(toolbar, textvariable=self.history_range_end_value, width=12)
+        if DateEntry is not None:
+            end_entry = DateEntry(toolbar, textvariable=self.history_range_end_value, width=12, date_pattern="yyyy-mm-dd")
+        else:
+            end_entry = ttk.Entry(toolbar, textvariable=self.history_range_end_value, width=12)
         end_entry.pack(side="left")
+        self.history_start_picker = start_entry
+        self.history_end_picker = end_entry
         ttk.Label(toolbar, text="Result:").pack(side="left", padx=(12, 4))
         result_filter = ttk.Combobox(toolbar, textvariable=self.history_filter_value, values=("All", "Closed", "Wins", "Losses", "Entries", "Unlabeled"), state="readonly", width=10)
         result_filter.pack(side="left")
         ttk.Label(toolbar, text="Rows:").pack(side="left", padx=(12, 4))
         row_limit = ttk.Combobox(toolbar, textvariable=self.history_limit_value, values=("50", "100", "250", "500", "1000", "All"), state="readonly", width=8)
         row_limit.pack(side="left")
-        ttk.Button(toolbar, text="Refresh", command=self.load_difference_history).pack(side="left", padx=(12, 0))
+        ttk.Button(toolbar, text="Apply", command=self.apply_history_filters).pack(side="left", padx=(12, 0))
+        ttk.Button(toolbar, text="Clear", command=self.clear_history_filters).pack(side="left", padx=(6, 0))
+        ttk.Label(toolbar, text="Dates use UTC-5").pack(side="left", padx=(10, 0))
 
         for widget in (start_entry, end_entry):
             widget.bind("<Return>", self.on_history_filter_changed)
             widget.bind("<FocusOut>", self.on_history_filter_changed)
+
+        summary_label = ttk.Label(history_frame, textvariable=self.history_active_filters_value, foreground="#9fd3ff")
+        summary_label.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 6), padx=(2, 0))
         
         columns = ("timestamp", "session", "topstep", "tradovate", "difference", "result", "p_l")
         self.history_tree = ttk.Treeview(history_frame, columns=columns, show="headings", height=8)
@@ -410,12 +433,13 @@ class UIMixin:
             {"timestamp": 130, "session": 82, "topstep": 100, "tradovate": 100, "difference": 95, "result": 74, "p_l": 82},
         )
 
-        self.analytics_timeframe_value.trace_add("write", self.on_history_filter_changed)
-        self.analytics_session_value.trace_add("write", self.on_history_filter_changed)
-        self.history_range_start_value.trace_add("write", self.on_history_filter_changed)
-        self.history_range_end_value.trace_add("write", self.on_history_filter_changed)
-        self.history_filter_value.trace_add("write", self.on_history_filter_changed)
-        self.history_limit_value.trace_add("write", self.on_history_filter_changed)
+        period_filter.bind("<<ComboboxSelected>>", self.on_history_filter_changed)
+        session_filter.bind("<<ComboboxSelected>>", self.on_history_filter_changed)
+        result_filter.bind("<<ComboboxSelected>>", self.on_history_filter_changed)
+        row_limit.bind("<<ComboboxSelected>>", self.on_history_filter_changed)
+        if DateEntry is not None:
+            start_entry.bind("<<DateEntrySelected>>", self.on_history_filter_changed)
+            end_entry.bind("<<DateEntrySelected>>", self.on_history_filter_changed)
         
         return view
     
@@ -522,7 +546,24 @@ class UIMixin:
 
     def bind_mousewheel_scroll(self, canvas, scrollable):
         """Enable mouse wheel scrolling for a canvas while pointer is over the view."""
+        def is_treeview_widget(widget):
+            current = widget
+            while current is not None:
+                try:
+                    if current.winfo_class() == "Treeview":
+                        return True
+                    parent_name = current.winfo_parent()
+                    if not parent_name:
+                        break
+                    current = current.nametowidget(parent_name)
+                except Exception:
+                    break
+            return False
+
         def on_mousewheel(event):
+            # Let table widgets handle their own wheel behavior.
+            if is_treeview_widget(getattr(event, "widget", None)):
+                return
             if event.delta:
                 canvas.yview_scroll(int(-event.delta / 120), "units")
             elif getattr(event, "num", None) == 4:

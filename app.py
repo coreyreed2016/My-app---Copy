@@ -47,6 +47,7 @@ class NumberDiffApp(tk.Tk, UIMixin, DataMixin, TradingMixin, RuntimeMixin):
         self.history_range_end_value = tk.StringVar(value="")
         self.history_filter_value = tk.StringVar(value="All")
         self.history_limit_value = tk.StringVar(value="250")
+        self.history_active_filters_value = tk.StringVar(value="Active filters: None (default rows: 250)")
         self.auto_sim_threshold_value = tk.StringVar(value="1")
         self.auto_sim_cooldown_value = tk.StringVar(value="3")
         self.stop_loss_points_value = tk.StringVar(value="5")
@@ -66,6 +67,8 @@ class NumberDiffApp(tk.Tk, UIMixin, DataMixin, TradingMixin, RuntimeMixin):
         self.auto_sim_status_value = tk.StringVar(value="Idle")
         self.order_count_value = tk.StringVar(value="0")
         self.live_trades_enabled_value = tk.BooleanVar(value=False)
+        self.session_entries_value = tk.StringVar(value="0 / 30")
+        self.session_pnl_value = tk.StringVar(value="$0.00 / $800.00")
 
         self.running = False
         self.worker = None
@@ -98,6 +101,9 @@ class NumberDiffApp(tk.Tk, UIMixin, DataMixin, TradingMixin, RuntimeMixin):
         self.auto_entry_meta = None
         self.sl_rearm_required = False
         self.realized_total_profit_loss = 0.0
+        self.session_trade_limit = 30
+        self.session_profit_goal = 800.0
+        self.session_guardrails = {}
         self.session_profiles = {
             "New York": {"threshold_offset": 0.0, "cooldown_mult": 1.0, "tp_offset": 0.0, "sl_offset": 0.0, "trades": []},
             "London": {"threshold_offset": 0.0, "cooldown_mult": 1.0, "tp_offset": 0.0, "sl_offset": 0.0, "trades": []},

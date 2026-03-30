@@ -333,9 +333,65 @@ class DataMixin:
     def on_history_filter_changed(self, *_args):
         if self.history_tree is None:
             return
+        self.apply_history_filters()
+
+    def apply_history_filters(self):
         self.load_difference_history()
 
+    def clear_history_filters(self):
+        self.analytics_timeframe_value.set("All")
+        self.analytics_session_value.set("All")
+        self.history_range_start_value.set("")
+        self.history_range_end_value.set("")
+        self.history_filter_value.set("All")
+        self.history_limit_value.set("250")
+
+        # DateEntry widgets can retain stale visual text after var reset.
+        for attr_name in ("history_start_picker", "history_end_picker"):
+            widget = getattr(self, attr_name, None)
+            if widget is not None and hasattr(widget, "delete"):
+                try:
+                    widget.delete(0, "end")
+                except Exception:
+                    pass
+
+        self.load_difference_history()
+        self.set_status("History filters cleared", "ok")
+
+    def build_history_filter_summary(self):
+        parts = []
+
+        period = self.analytics_timeframe_value.get().strip()
+        if period and period.lower() != "all":
+            parts.append(f"Period: {period}")
+
+        session = self.analytics_session_value.get().strip()
+        if session and session.lower() != "all":
+            parts.append(f"Session: {session}")
+
+        start_date = self.history_range_start_value.get().strip()
+        end_date = self.history_range_end_value.get().strip()
+        if start_date and end_date:
+            parts.append(f"Date: {start_date} to {end_date}")
+        elif start_date:
+            parts.append(f"Date: from {start_date}")
+        elif end_date:
+            parts.append(f"Date: through {end_date}")
+
+        result_filter = self.history_filter_value.get().strip()
+        if result_filter and result_filter.lower() != "all":
+            parts.append(f"Result: {result_filter}")
+
+        row_limit = self.history_limit_value.get().strip()
+        if row_limit and row_limit.lower() != "250":
+            parts.append(f"Rows: {row_limit}")
+
+        if not parts:
+            return "Active filters: None (default rows: 250)"
+        return "Active filters: " + " | ".join(parts)
+
     def load_difference_history(self):
+        self.history_active_filters_value.set(self.build_history_filter_summary())
         rows = self.read_difference_history_rows()
         timeframe_rows = self.filter_rows_by_timeframe(rows)
         range_rows = self.filter_rows_by_date_range(timeframe_rows)
